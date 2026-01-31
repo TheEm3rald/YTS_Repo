@@ -34,7 +34,7 @@ export default function App() {
   function deleteTodo(id: string) {
     client.models.Todo.delete({ id })
   }
-  
+          
   return (
     <main>
       <h1>My todos</h1>
@@ -42,6 +42,7 @@ export default function App() {
       <ul>
         {todos.map((todo) => (
           <li key={todo.id}>{todo.content}</li>
+                onClick={() => deleteTodo(todo.id)}
         ))}
       </ul>
       <div>
