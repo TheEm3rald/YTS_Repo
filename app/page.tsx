@@ -40,11 +40,12 @@ export default function App() {
       <h1>My todos</h1>
       <button onClick={createTodo}>+ new</button>
       <ul>
-        {todos.map(todo => <li
-          onClick={() => deleteTodo(todo.id)}
-          key={todo.id}>
-          {todo.content}
-        </li>)}
+        {todos.map(todo => (
+          <li key={todo.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ flex: 1 }}>{todo.content}</span>
+            <button onClick={() => deleteTodo(todo.id)} style={{ color: 'white', background: 'red', border: 'none', borderRadius: '4px', padding: '0.2rem 0.5rem', cursor: 'pointer' }}>Delete</button>
+          </li>
+        ))}
       </ul> 
       <div>
         🥳 App successfully hosted. Try creating a new todo.
