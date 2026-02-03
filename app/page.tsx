@@ -139,7 +139,12 @@ export default function App() {
   }
 
   return (
-    <main>
+    <>
+      <nav style={{ width: '100%', background: '#222', color: 'white', padding: '0.75rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
+        <span style={{ fontWeight: 700, fontSize: '1.2rem' }}>YTS App</span>
+        <a href="/chatbot" style={{ color: 'white', textDecoration: 'none', background: '#0070f3', padding: '0.4rem 1rem', borderRadius: '4px', fontWeight: 500 }}>AI Chatbot</a>
+      </nav>
+      <main>
       <h1>My todos</h1>
       <button onClick={createTodo}>+ new</button>
       <ul>
@@ -232,6 +237,7 @@ export default function App() {
           </div>
         )}
       </section>
-    </main>
+      </main>
+    </>
   )
 }
