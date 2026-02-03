@@ -36,27 +36,96 @@ export default function App() {
   }
           
   // Weather widget state
-  const [city, setCity] = useState("");
+  const US_STATES = [
+    { abbr: "AL", name: "Alabama" }, { abbr: "AK", name: "Alaska" }, { abbr: "AZ", name: "Arizona" }, { abbr: "AR", name: "Arkansas" },
+    { abbr: "CA", name: "California" }, { abbr: "CO", name: "Colorado" }, { abbr: "CT", name: "Connecticut" }, { abbr: "DE", name: "Delaware" },
+    { abbr: "FL", name: "Florida" }, { abbr: "GA", name: "Georgia" }, { abbr: "HI", name: "Hawaii" }, { abbr: "ID", name: "Idaho" },
+    { abbr: "IL", name: "Illinois" }, { abbr: "IN", name: "Indiana" }, { abbr: "IA", name: "Iowa" }, { abbr: "KS", name: "Kansas" },
+    { abbr: "KY", name: "Kentucky" }, { abbr: "LA", name: "Louisiana" }, { abbr: "ME", name: "Maine" }, { abbr: "MD", name: "Maryland" },
+    { abbr: "MA", name: "Massachusetts" }, { abbr: "MI", name: "Michigan" }, { abbr: "MN", name: "Minnesota" }, { abbr: "MS", name: "Mississippi" },
+    { abbr: "MO", name: "Missouri" }, { abbr: "MT", name: "Montana" }, { abbr: "NE", name: "Nebraska" }, { abbr: "NV", name: "Nevada" },
+    { abbr: "NH", name: "New Hampshire" }, { abbr: "NJ", name: "New Jersey" }, { abbr: "NM", name: "New Mexico" }, { abbr: "NY", name: "New York" },
+    { abbr: "NC", name: "North Carolina" }, { abbr: "ND", name: "North Dakota" }, { abbr: "OH", name: "Ohio" }, { abbr: "OK", name: "Oklahoma" },
+    { abbr: "OR", name: "Oregon" }, { abbr: "PA", name: "Pennsylvania" }, { abbr: "RI", name: "Rhode Island" }, { abbr: "SC", name: "South Carolina" },
+    { abbr: "SD", name: "South Dakota" }, { abbr: "TN", name: "Tennessee" }, { abbr: "TX", name: "Texas" }, { abbr: "UT", name: "Utah" },
+    { abbr: "VT", name: "Vermont" }, { abbr: "VA", name: "Virginia" }, { abbr: "WA", name: "Washington" }, { abbr: "WV", name: "West Virginia" },
+    { abbr: "WI", name: "Wisconsin" }, { abbr: "WY", name: "Wyoming" }
+  ];
   const [state, setState] = useState("");
+  const [cityInput, setCityInput] = useState("");
+  const [cityOptions, setCityOptions] = useState<any[]>([]);
+  const [selectedCity, setSelectedCity] = useState<any>(null);
   const [weather, setWeather] = useState<any>(null);
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [weatherError, setWeatherError] = useState("");
-
-  async function fetchWeather(e: React.FormEvent) {
-    e.preventDefault();
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [ip, setIp] = useState<string>("");
+  const [loadingIp, setLoadingIp] = useState(false);
+  // Fetch weather by IP
+  async function fetchWeatherByIP() {
     setLoadingWeather(true);
     setWeatherError("");
     setWeather(null);
+    setLoadingIp(true);
     try {
-      // Use Open-Meteo geocoding and weather APIs (no key required)
-      const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)},${encodeURIComponent(state)}&count=1`);
-      const geoData = await geoRes.json();
-      if (!geoData.results || geoData.results.length === 0) {
-        setWeatherError("Location not found.");
+      // Get IP and location
+      const ipRes = await fetch("https://ipapi.co/json/");
+      const ipData = await ipRes.json();
+      setIp(ipData.ip);
+      if (!ipData.latitude || !ipData.longitude) {
+        setWeatherError("Could not determine your location from IP.");
         setLoadingWeather(false);
+        setLoadingIp(false);
         return;
       }
-      const { latitude, longitude, name, country } = geoData.results[0];
+      const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${ipData.latitude}&longitude=${ipData.longitude}&current_weather=true`);
+      const weatherData = await weatherRes.json();
+      setWeather({
+        location: `${ipData.city}, ${ipData.region}, ${ipData.country_name}`,
+        ...weatherData.current_weather
+      });
+    } catch (err) {
+      setWeatherError("Failed to fetch weather by IP.");
+    }
+    setLoadingWeather(false);
+    setLoadingIp(false);
+  }
+
+  // Fetch city options as user types
+  useEffect(() => {
+    async function fetchCities() {
+      if (cityInput.length < 2 || !state) {
+        setCityOptions([]);
+        return;
+      }
+      setLoadingCities(true);
+      try {
+        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityInput)}&country=US&admin1=${encodeURIComponent(state)}&count=5`);
+        const geoData = await geoRes.json();
+        if (geoData.results) {
+          setCityOptions(geoData.results);
+        } else {
+          setCityOptions([]);
+        }
+      } catch {
+        setCityOptions([]);
+      }
+      setLoadingCities(false);
+    }
+    fetchCities();
+  }, [cityInput, state]);
+
+  async function fetchWeather(e: React.FormEvent) {
+    e.preventDefault();
+    setWeatherError("");
+    setWeather(null);
+    if (!selectedCity) {
+      setWeatherError("Please select a city from the list.");
+      return;
+    }
+    setLoadingWeather(true);
+    try {
+      const { latitude, longitude, name, country } = selectedCity;
       const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
       const weatherData = await weatherRes.json();
       setWeather({
@@ -89,24 +158,66 @@ export default function App() {
       <hr style={{ margin: "2rem 0" }} />
       <section style={{ marginTop: "2rem", padding: "1rem", border: "1px solid #ccc", borderRadius: "8px", maxWidth: "400px" }}>
         <h2>Weather Widget</h2>
-        <form onSubmit={fetchWeather} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          <input
-            type="text"
-            placeholder="City"
-            value={city}
-            onChange={e => setCity(e.target.value)}
-            required
-            style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #aaa" }}
-          />
-          <input
-            type="text"
-            placeholder="State"
-            value={state}
-            onChange={e => setState(e.target.value)}
-            required
-            style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #aaa" }}
-          />
-          <button type="submit" style={{ background: "#0070f3", color: "white", border: "none", borderRadius: "4px", padding: "0.5rem", cursor: "pointer" }}>
+        <button onClick={fetchWeatherByIP} style={{ background: "#0070f3", color: "white", border: "none", borderRadius: "4px", padding: "0.5rem", cursor: "pointer", marginBottom: "1rem" }} disabled={loadingWeather || loadingIp}>
+          {loadingIp ? "Detecting location..." : loadingWeather ? "Loading weather..." : "Get My Weather by IP"}
+        </button>
+        {ip && <div style={{ fontSize: "0.95em", marginBottom: "0.5rem" }}>Your IP: {ip}</div>}
+        <div style={{ margin: "1rem 0", fontWeight: 500 }}>Or search by city/state:</div>
+        <form onSubmit={fetchWeather} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }} autoComplete="off">
+          <label>
+            State
+            <select
+              value={state}
+              onChange={e => {
+                setState(e.target.value);
+                setSelectedCity(null);
+                setCityInput("");
+                setCityOptions([]);
+              }}
+              required
+              style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #aaa", marginTop: "0.25rem" }}
+            >
+              <option value="">Select state</option>
+              {US_STATES.map(s => (
+                <option key={s.abbr} value={s.name}>{s.name}</option>
+              ))}
+            </select>
+          </label>
+          <label style={{ marginTop: "0.5rem" }}>
+            City
+            <input
+              type="text"
+              placeholder="Enter city name"
+              value={cityInput}
+              onChange={e => {
+                setCityInput(e.target.value);
+                setSelectedCity(null);
+              }}
+              disabled={!state}
+              required
+              style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #aaa", marginTop: "0.25rem" }}
+              autoComplete="off"
+            />
+            {loadingCities && <div style={{ fontSize: "0.9em" }}>Loading cities...</div>}
+            {cityOptions.length > 0 && (
+              <ul style={{ listStyle: "none", padding: 0, margin: 0, border: "1px solid #aaa", borderRadius: "4px", background: "#fff", maxHeight: "120px", overflowY: "auto", position: "absolute", zIndex: 10 }}>
+                {cityOptions.map((city, idx) => (
+                  <li
+                    key={city.id || city.name + city.latitude}
+                    style={{ padding: "0.3rem 0.5rem", cursor: "pointer" , background: selectedCity && selectedCity.name === city.name ? "#e0e0e0" : "#fff"}}
+                    onClick={() => {
+                      setSelectedCity(city);
+                      setCityInput(city.name);
+                      setCityOptions([]);
+                    }}
+                  >
+                    {city.name} {city.admin1 ? `(${city.admin1})` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </label>
+          <button type="submit" style={{ background: "#0070f3", color: "white", border: "none", borderRadius: "4px", padding: "0.5rem", cursor: "pointer", marginTop: "0.5rem" }}>
             {loadingWeather ? "Loading..." : "Get Weather"}
           </button>
         </form>
